@@ -1,7 +1,19 @@
-import type { NextConfig } from "next";
+  import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+  const securityHeaders = [
+    { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+    { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+  ];
 
-export default nextConfig;
+  const nextConfig: NextConfig = {
+    async headers() {
+      return [
+        {
+          source: "/(.*)",
+          headers: securityHeaders,
+        },
+      ];
+    },
+  };
+
+  export default nextConfig;
