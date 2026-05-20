@@ -7,6 +7,7 @@ import { TranscriptView } from "@/components/transcript-view";
 import { ProgressBar } from "@/components/progress-bar";
 import { VideoPreview, type VideoPreviewHandle } from "@/components/video-preview";
 import { CutControls } from "@/components/cut-controls";
+import { ExportButton } from "@/components/export-button";
 import { showBanner } from "@/lib/error-banner-store";
 import { loadProject, saveProject } from "@/lib/storage";
 import { extractMonoPCM } from "@/lib/audio";
@@ -210,6 +211,7 @@ function EditorInner() {
               onRejectAllAI={onRejectAllAI}
               onCutAllFillers={onCutAllFillers}
             />
+            <ExportButton project={project} sentences={sentences} />
           </>
         )}
       </section>
