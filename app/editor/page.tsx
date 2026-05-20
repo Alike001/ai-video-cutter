@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { CapabilityGuard } from "@/components/capability-guard";
 import { TranscriptView } from "@/components/transcript-view";
 import { ProgressBar } from "@/components/progress-bar";
+import { VideoPreview, type VideoPreviewHandle } from "@/components/video-preview";
+import { CutControls } from "@/components/cut-controls";
 import { showBanner } from "@/lib/error-banner-store";
 import { loadProject, saveProject } from "@/lib/storage";
 import { extractMonoPCM } from "@/lib/audio";
@@ -28,7 +30,9 @@ function EditorInner() {
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [phase, setPhase] = useState<Phase>("loading-project");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [playKeptOnly, setPlayKeptOnly] = useState(true);
   const ranTranscription = useRef(false);
+  const videoRef = useRef<VideoPreviewHandle | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +133,25 @@ function EditorInner() {
 
   function onSelect(id: string) {
     setActiveId(id);
+    const sentence = sentences.find((s) => s.id === id);
+    if (sentence && videoRef.current) {
+      videoRef.current.seekTo(sentence.startSec);
+    }
   }
+
+  function applyBulk(transform: (s: Sentence) => Sentence) {
+    setSentences((prev) => {
+      const next = prev.map(transform);
+      persist(next);
+      return next;
+    });
+  }
+
+  const onAcceptAllAI = () =>
+    applyBulk((s) => ({ ...s, keep: s.suggestedKeep }));
+  const onRejectAllAI = () => applyBulk((s) => ({ ...s, keep: true }));
+  const onCutAllFillers = () =>
+    applyBulk((s) => (s.reason === "filler" ? { ...s, keep: false } : s));
 
   if (phase === "loading-project") {
     return (
@@ -170,9 +192,26 @@ function EditorInner() {
           onToggle={onToggle}
         />
       </section>
-      <section className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Preview</h2>
-        <p className="text-sm text-gray-500">Preview coming in Phase 3.</p>
+      <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+        <h2 className="text-lg font-semibold text-gray-900">Preview</h2>
+        {project && (
+          <>
+            <VideoPreview
+              ref={videoRef}
+              videoBlob={project.videoBlob}
+              sentences={sentences}
+              playKeptOnly={playKeptOnly}
+              onPlayKeptOnlyChange={setPlayKeptOnly}
+            />
+            <CutControls
+              sentences={sentences}
+              durationSec={project.durationSec}
+              onAcceptAllAI={onAcceptAllAI}
+              onRejectAllAI={onRejectAllAI}
+              onCutAllFillers={onCutAllFillers}
+            />
+          </>
+        )}
       </section>
     </main>
   );
