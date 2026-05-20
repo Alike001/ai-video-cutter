@@ -9,6 +9,8 @@ import { showBanner } from "@/lib/error-banner-store";
 import { loadProject, saveProject } from "@/lib/storage";
 import { extractMonoPCM } from "@/lib/audio";
 import { transcribe } from "@/lib/whisper";
+import { applyDeterministicCuts } from "@/lib/cut-detector";
+import { fetchSuggestions, mergeSuggestions } from "@/lib/groq-client";
 import { debounce } from "@/lib/utils";
 import type { Project, Sentence } from "@/lib/types";
 
@@ -16,6 +18,7 @@ type Phase =
   | "loading-project"
   | "extracting-audio"
   | "transcribing"
+  | "analyzing"
   | "ready"
   | "error";
 
@@ -65,8 +68,25 @@ function EditorInner() {
         setPhase("error");
         return;
       }
-      setSentences(result);
-      const updated: Project = { ...p, sentences: result, lastModifiedAt: Date.now() };
+      setPhase("analyzing");
+      let staged = applyDeterministicCuts(result);
+      const suggestions = await fetchSuggestions(staged);
+      if (suggestions === null) {
+        showBanner({
+          message:
+            "Smart AI suggestions unavailable — basic filler detection still active.",
+          variant: "warning",
+        });
+      } else if (suggestions.length > 0) {
+        staged = mergeSuggestions(staged, suggestions);
+      }
+
+      setSentences(staged);
+      const updated: Project = {
+        ...p,
+        sentences: staged,
+        lastModifiedAt: Date.now(),
+      };
       setProject(updated);
       await saveProject(updated);
       setPhase("ready");
@@ -130,11 +150,16 @@ function EditorInner() {
             </span>
           )}
         </div>
-        {(phase === "extracting-audio" || phase === "transcribing") && (
+        {(phase === "extracting-audio" ||
+          phase === "transcribing" ||
+          phase === "analyzing") && (
           <div className="space-y-3 mb-4">
             {phase === "extracting-audio" && <ProgressBar label="Extracting audio…" />}
             {phase === "transcribing" && (
               <ProgressBar label="Transcribing with Groq Whisper…" />
+            )}
+            {phase === "analyzing" && (
+              <ProgressBar label="Analyzing cuts with AI…" />
             )}
           </div>
         )}
