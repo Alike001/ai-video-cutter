@@ -41,10 +41,6 @@ function pcmToWav(pcm: Float32Array, sampleRate = SAMPLE_RATE): Blob {
   return new Blob([buffer], { type: "audio/wav" });
 }
 
-export function preloadModel(_onProgress?: (frac: number) => void): void {
-  // No-op: Groq handles the model server-side. Kept for API compatibility.
-}
-
 type GroqSegment = {
   start: number;
   end: number;
@@ -57,10 +53,7 @@ type GroqResponse = {
   text?: string;
 };
 
-export async function transcribe(
-  pcm: Float32Array,
-  _opts: { onModelProgress?: (frac: number) => void } = {}
-): Promise<Sentence[]> {
+export async function transcribe(pcm: Float32Array): Promise<Sentence[]> {
   const wav = pcmToWav(pcm);
   const form = new FormData();
   form.append("file", wav, "audio.wav");
