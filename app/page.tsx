@@ -35,9 +35,10 @@ function HomeInner() {
   }, []);
 
   async function handleFile(file: File) {
+    let project: Project;
     try {
       const durationSec = await getDurationSec(file);
-      const project: Project = {
+      project = {
         videoBlob: file,
         videoFileName: file.name,
         videoMimeType: file.type,
@@ -46,14 +47,24 @@ function HomeInner() {
         createdAt: Date.now(),
         lastModifiedAt: Date.now(),
       };
-      await saveProject(project);
-      router.push("/editor");
     } catch (err) {
       showBanner({
         message: err instanceof Error ? err.message : "Upload failed.",
         variant: "error",
       });
+      return;
     }
+
+    try {
+      await saveProject(project);
+    } catch {
+      showBanner({
+        message: "Private browsing — work won't save if you close the tab.",
+        variant: "warning",
+      });
+      return;
+    }
+    router.push("/editor");
   }
 
   return (

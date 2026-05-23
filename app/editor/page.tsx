@@ -8,7 +8,7 @@ import { ProgressBar } from "@/components/progress-bar";
 import { VideoPreview, type VideoPreviewHandle } from "@/components/video-preview";
 import { CutControls } from "@/components/cut-controls";
 import { ExportButton } from "@/components/export-button";
-import { showBanner } from "@/lib/error-banner-store";
+import { showBanner, clearBanner } from "@/lib/error-banner-store";
 import { loadProject, saveProject } from "@/lib/storage";
 import { extractMonoPCM } from "@/lib/audio";
 import { transcribe } from "@/lib/whisper";
@@ -59,6 +59,27 @@ function EditorInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (
+      phase !== "extracting-audio" &&
+      phase !== "transcribing" &&
+      phase !== "analyzing"
+    )
+      return;
+    function onVisibility() {
+      if (document.hidden) {
+        showBanner({
+          message: "Tab inactive — bring it back to keep transcribing.",
+          variant: "warning",
+        });
+      } else {
+        clearBanner();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [phase]);
+
   async function runTranscription(p: Project) {
     try {
       setPhase("extracting-audio");
@@ -87,6 +108,19 @@ function EditorInner() {
       }
 
       setSentences(staged);
+      const text = staged.map((s) => s.text).join(" ").toLowerCase();
+      const stopWords = ["the", "a", "an", "and", "to", "of", "in", "is", "it", "you", "i"];
+      const totalWords = text.split(/\s+/).filter(Boolean).length;
+      const stopHits = stopWords.reduce(
+        (acc, w) => acc + (text.match(new RegExp(`\\b${w}\\b`, "g"))?.length ?? 0),
+        0
+      );
+      if (totalWords > 30 && stopHits / totalWords < 0.05) {
+        showBanner({
+          message: "v1 is optimized for English. Results may be off.",
+          variant: "warning",
+        });
+      }
       const updated: Project = {
         ...p,
         sentences: staged,
